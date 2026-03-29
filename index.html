@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#3f6f51" />
+  <meta name="description" content="Shopping list" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Groceries" />
+  <title>Grocery list</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3f0ea;
+      --surface: #fffcf7;
+      --border: #e3ddd4;
+      --text: #1c1917;
+      --muted: #78716c;
+      --accent: #3f6f51;
+      --accent-soft: #e8f0eb;
+      --danger: #b45309;
+      --danger-soft: #fff7ed;
+      --shadow: 0 4px 24px rgba(28, 25, 23, 0.06);
+      --radius: 14px;
+      --radius-sm: 10px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: "Outfit", system-ui, sans-serif;
+      font-size: 1rem;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse 120% 80% at 50% -20%, rgba(63, 111, 81, 0.08), transparent),
+        radial-gradient(ellipse 80% 50% at 100% 100%, rgba(180, 83, 9, 0.05), transparent);
+    }
+
+    .wrap {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .app-header__text {
+      min-width: 0;
+    }
+
+    .app-header h1 {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: clamp(1.75rem, 5vw, 2.125rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.35rem;
+      color: var(--text);
+    }
+
+    .app-header .sub {
+      margin: 0;
+    }
+
+    .btn-icon {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--accent);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .btn-icon:hover {
+      background: var(--accent-soft);
+      border-color: rgba(63, 111, 81, 0.35);
+    }
+
+    .btn-icon:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-icon svg {
+      width: 1.2rem;
+      height: 1.2rem;
+    }
+
+    @keyframes header-refresh-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .btn-icon.is-busy svg {
+      animation: header-refresh-spin 0.7s linear infinite;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      font-weight: 400;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .add-row {
+      display: flex;
+      gap: 0.6rem;
+      align-items: flex-start;
+    }
+
+    .autocomplete-wrap {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+    }
+
+    .add-row .autocomplete-wrap input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font: inherit;
+      background: #fff;
+      color: var(--text);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .add-row .autocomplete-wrap input::placeholder {
+      color: #a8a29e;
+    }
+
+    .add-row .autocomplete-wrap input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .item-suggestions {
+      list-style: none;
+      margin: 0;
+      padding: 0.3rem 0;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow);
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 30;
+    }
+
+    .item-suggestions li {
+      padding: 0.5rem 0.9rem;
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .item-suggestions li:hover {
+      background: var(--accent-soft);
+    }
+
+    .btn {
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.75rem 1.1rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #325c42;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      padding: 0.35rem 0.5rem;
+      font-size: 0.8rem;
+      border-radius: 8px;
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg);
+      color: var(--danger);
+    }
+
+    .list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+      padding: 0 0.15rem;
+    }
+
+    .list-header span {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0.85rem 0.65rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .item:hover {
+      background: rgba(63, 111, 81, 0.04);
+    }
+
+    .item + .item {
+      border-top: 1px solid var(--border);
+      margin-top: 0;
+      border-radius: 0;
+      border-top-left-radius: var(--radius-sm);
+      border-top-right-radius: var(--radius-sm);
+    }
+
+    .item + .item:hover {
+      border-top-color: transparent;
+    }
+
+    .item:first-of-type {
+      border-top: none;
+    }
+
+    .checkbox-wrap {
+      flex-shrink: 0;
+      position: relative;
+      width: 1.35rem;
+      height: 1.35rem;
+    }
+
+    .checkbox-wrap input {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      cursor: pointer;
+      z-index: 1;
+    }
+
+    .checkbox-face {
+      position: absolute;
+      inset: 0;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+      transition: border-color 0.15s, background 0.15s;
+      pointer-events: none;
+    }
+
+    .checkbox-wrap input:focus-visible + .checkbox-face {
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .checkbox-wrap input:checked + .checkbox-face {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .checkbox-wrap input:checked + .checkbox-face::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 5px;
+      height: 9px;
+      border: solid #fff;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    .item-label {
+      flex: 1;
+      min-width: 0;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.2rem 0;
+      transition: color 0.15s;
+    }
+
+    .item.complete .item-label {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    .item.complete {
+      background: rgba(120, 113, 108, 0.06);
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+
+    .badge-todo {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .badge-done {
+      background: #e7e5e4;
+      color: var(--muted);
+    }
+
+    .empty {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .empty strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+      font-weight: 600;
+    }
+
+    .banner {
+      margin: 0 0 1rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .banner--load {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(63, 111, 81, 0.25);
+    }
+
+    .banner--error {
+      background: var(--danger-soft);
+      color: #9a3412;
+      border: 1px solid rgba(180, 83, 9, 0.35);
+    }
+
+    .wrap.is-busy .btn-primary,
+    .wrap.is-busy .add-row input {
+      opacity: 0.65;
+      pointer-events: none;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 0.35rem;
+      margin-bottom: 1.25rem;
+      padding: 0.25rem;
+      background: rgba(255, 252, 247, 0.85);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .tab-bar button {
+      flex: 1;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.65rem 0.75rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .tab-bar button:hover {
+      color: var(--text);
+      background: rgba(63, 111, 81, 0.06);
+    }
+
+    .tab-bar button[aria-selected="true"] {
+      background: var(--surface);
+      color: var(--accent);
+      box-shadow: 0 1px 3px rgba(28, 25, 23, 0.08);
+    }
+
+    .item-text-col {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-when {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+      font-weight: 500;
+    }
+
+    .item.complete .item-when {
+      color: #a8a29e;
+    }
+
+    .past-lead {
+      margin: 0 0 1rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .past-card {
+      padding: 1rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #fff;
+      margin-bottom: 0.65rem;
+    }
+
+    .past-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .past-card__title {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 0 0 0.35rem;
+      letter-spacing: -0.02em;
+    }
+
+    .past-card__meta {
+      margin: 0 0 0.6rem;
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+
+    .past-card__meta strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .past-card__details {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .past-card__details summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--accent);
+      list-style: none;
+    }
+
+    .past-card__details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .past-dates {
+      margin: 0.5rem 0 0;
+      padding-left: 1.1rem;
+      color: var(--muted);
+    }
+
+    .past-dates li {
+      margin: 0.2rem 0;
+    }
+
+    .credential-gate {
+      padding-top: 2rem;
+    }
+
+    .credential-gate .card {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+      text-align: center;
+    }
+
+    .gate-label {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .credential-gate .btn-primary {
+      width: 100%;
+    }
+
+    .app-footer {
+      margin-top: 1.75rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .app-footer .btn-ghost {
+      font-size: 0.78rem;
+    }
+
+    @media (max-width: 640px) {
+      html {
+        -webkit-text-size-adjust: 100%;
+        font-size: 112.5%;
+      }
+
+      body {
+        -webkit-tap-highlight-color: rgba(63, 111, 81, 0.15);
+      }
+
+      .wrap {
+        max-width: none;
+        padding: max(1rem, env(safe-area-inset-top)) 1rem max(1.75rem, env(safe-area-inset-bottom));
+      }
+
+      .app-header {
+        margin-bottom: 1.35rem;
+      }
+
+      .app-header h1 {
+        font-size: clamp(1.9rem, 7vw, 2.35rem);
+        line-height: 1.15;
+      }
+
+      .app-header .sub {
+        font-size: 1.02rem;
+        line-height: 1.45;
+      }
+
+      .btn-icon {
+        width: 2.85rem;
+        height: 2.85rem;
+      }
+
+      .btn-icon svg {
+        width: 1.35rem;
+        height: 1.35rem;
+      }
+
+      .tab-bar {
+        margin-bottom: 1.1rem;
+      }
+
+      .tab-bar button {
+        font-size: 1.02rem;
+        font-weight: 600;
+        padding: 0.85rem 0.6rem;
+        min-height: 3rem;
+      }
+
+      .add-row .autocomplete-wrap input,
+      .add-row .btn.btn-primary {
+        font-size: 1.08rem;
+        min-height: 3.35rem;
+        padding: 0.9rem 1rem;
+      }
+
+      .btn {
+        min-height: 2.85rem;
+      }
+
+      .btn-ghost {
+        font-size: 0.88rem;
+        min-height: 2.65rem;
+        padding: 0.5rem 0.7rem;
+      }
+
+      .item {
+        padding: 1.05rem 0.55rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .item-label {
+        font-size: 1.08rem;
+      }
+
+      .item-when {
+        font-size: 0.88rem;
+      }
+
+      .checkbox-wrap {
+        width: 1.55rem;
+        height: 1.55rem;
+      }
+
+      .checkbox-wrap input:checked + .checkbox-face::after {
+        left: 5px;
+        top: 2px;
+        width: 5px;
+        height: 10px;
+      }
+
+      .badge {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.52rem;
+      }
+
+      .list-header span {
+        font-size: 0.82rem;
+      }
+
+      .empty {
+        font-size: 1.02rem;
+        padding: 2.25rem 1rem;
+      }
+
+      .banner {
+        font-size: 1rem;
+      }
+
+      .past-lead {
+        font-size: 1rem;
+      }
+
+      .past-card__title {
+        font-size: 1.18rem;
+      }
+
+      .past-card__meta {
+        font-size: 0.95rem;
+      }
+
+      .past-card__details {
+        font-size: 0.92rem;
+      }
+
+      .past-dates li {
+        font-size: 0.92rem;
+      }
+
+      .credential-gate {
+        padding-top: max(1.5rem, env(safe-area-inset-top));
+      }
+
+      .gate-label {
+        font-size: 1.12rem;
+      }
+
+      .credential-gate .btn-primary {
+        min-height: 3.25rem;
+        font-size: 1.08rem;
+      }
+
+      .app-footer .btn-ghost {
+        font-size: 0.88rem;
+        min-height: 2.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="credential-gate" class="credential-gate">
+      <div class="card">
+        <p class="gate-label">Enter passphrase:</p>
+        <button type="button" class="btn btn-primary" id="btn-unlock">Unlock</button>
+      </div>
+    </div>
+
+    <div id="app-content" hidden>
+      <div id="app-root">
+    <header class="app-header">
+      <div class="app-header__text">
+        <h1>Grocery list</h1>
+        <p class="sub">Add what you need — tick it off when it’s in the cart.</p>
+      </div>
+      <button type="button" class="btn-icon" id="btn-refresh" aria-label="Refresh" title="Refresh">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+          <path d="M16 21v-5h5" />
+        </svg>
+      </button>
+    </header>
+
+    <p class="banner banner--load" id="load-banner" hidden aria-live="polite">Loading your list…</p>
+    <p class="banner banner--error" id="error-banner" hidden role="alert"></p>
+
+    <div class="tab-bar" role="tablist" aria-label="List views">
+      <button type="button" role="tab" id="tab-list" aria-controls="panel-list" aria-selected="true">
+        Shopping list
+      </button>
+      <button type="button" role="tab" id="tab-past" aria-controls="panel-past" aria-selected="false">
+        Past bought
+      </button>
+    </div>
+
+    <div id="panel-list" role="tabpanel" aria-labelledby="tab-list">
+      <div class="card">
+        <form class="add-row" id="add-form" autocomplete="off">
+          <div class="autocomplete-wrap">
+            <input
+              type="text"
+              id="new-item"
+              placeholder="e.g. oat milk, bananas…"
+              maxlength="120"
+              aria-label="New grocery item"
+              aria-autocomplete="list"
+              aria-controls="item-suggestions"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <ul id="item-suggestions" class="item-suggestions" hidden role="listbox"></ul>
+          </div>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="list-header">
+          <span id="count-label">Items</span>
+          <button type="button" class="btn btn-ghost" id="clear-done" hidden>Clear done</button>
+        </div>
+        <ul id="list" aria-live="polite"></ul>
+        <div class="empty" id="empty-state" hidden>
+          <strong>Your list is empty</strong>
+          Type something above and tap Add to get started.
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-past" role="tabpanel" aria-labelledby="tab-past" hidden>
+      <div class="card">
+        <p class="past-lead" id="past-summary"></p>
+        <div id="past-groups" aria-live="polite"></div>
+        <div class="empty" id="past-empty" hidden>
+          <strong>No history yet</strong>
+          When you check off items on your shopping list, each purchase is saved here with the time. You’ll see how often you’ve bought each thing.
+        </div>
+      </div>
+    </div>
+
+      <footer class="app-footer">
+        <button type="button" class="btn btn-ghost" id="btn-change-creds">Change</button>
+        <button type="button" class="btn btn-ghost" id="btn-clear-creds">Clear</button>
+      </footer>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js"></script>
+  <script>
+    (async function () {
+      var CRED_STORAGE_KEY = "grocery_list_app_credentials_v1";
+      var SUPABASE_URL = "";
+      var SUPABASE_KEY = "";
+
+      /** @typedef {{ id: string, name: string, purchased_at: string }} HistoryRow */
+      /** @typedef {{ id: string, text: string, done: boolean, boughtAt: string | null }} Item */
+
+      var client = null;
+
+      var sharedAudioCtx = null;
+
+      function getSharedAudio() {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return null;
+        if (!sharedAudioCtx) sharedAudioCtx = new Ctx();
+        if (sharedAudioCtx.state === "suspended") sharedAudioCtx.resume();
+        return sharedAudioCtx;
+      }
+
+      function playTone(freq, durationSec, peakGain) {
+        try {
+          var ctx = getSharedAudio();
+          if (!ctx) return;
+          var osc = ctx.createOscillator();
+          var g = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          var peak = peakGain != null ? peakGain : 0.11;
+          var t0 = ctx.currentTime;
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(peak, t0 + 0.018);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + durationSec);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + durationSec + 0.04);
+        } catch (_) {}
+      }
+
+      function playSoundAdded() {
+        playTone(880, 0.07, 0.1);
+        window.setTimeout(function () {
+          playTone(1174.66, 0.09, 0.09);
+        }, 65);
+      }
+
+      function playSoundChecked() {
+        playTone(523.25, 0.11, 0.11);
+        window.setTimeout(function () {
+          playTone(659.25, 0.13, 0.09);
+        }, 88);
+      }
+
+      function validateSupabaseUrl(url) {
+        var u = String(url || "").trim();
+        return u.indexOf("https://") === 0;
+      }
+
+      function getCredentials() {
+        var stored = localStorage.getItem(CRED_STORAGE_KEY);
+        if (stored) {
+          try {
+            var creds = JSON.parse(stored);
+            if (creds.supabase_url && creds.supabase_key) {
+              var rawUrl = String(creds.supabase_url).trim().replace(/\/$/, "");
+              if (!validateSupabaseUrl(rawUrl)) {
+                localStorage.removeItem(CRED_STORAGE_KEY);
+                return false;
+              }
+              SUPABASE_URL = rawUrl;
+              SUPABASE_KEY = String(creds.supabase_key).trim();
+              return true;
+            }
+          } catch (_) {}
+        }
+        return false;
+      }
+
+      function promptForCredentials() {
+        var input = prompt("Passphrase:");
+        if (!input) return false;
+        var params = new URLSearchParams(input.replace(/"/g, "").replace(/'/g, ""));
+        var url = params.get("supabase_url");
+        var key = params.get("supabase_key");
+        if (!url || !key) {
+          alert("Invalid.");
+          return promptForCredentials();
+        }
+        url = String(url).trim().replace(/\/$/, "");
+        if (!validateSupabaseUrl(url)) {
+          alert("Invalid.");
+          return promptForCredentials();
+        }
+        SUPABASE_URL = url;
+        SUPABASE_KEY = String(key).trim();
+        localStorage.setItem(
+          CRED_STORAGE_KEY,
+          JSON.stringify({ supabase_url: SUPABASE_URL, supabase_key: SUPABASE_KEY })
+        );
+        return true;
+      }
+
+      function clearCredentials() {
+        localStorage.removeItem(CRED_STORAGE_KEY);
+        SUPABASE_URL = "";
+        SUPABASE_KEY = "";
+        client = null;
+        location.reload();
+      }
+
+      var credentialGate = document.getElementById("credential-gate");
+      var appContent = document.getElementById("app-content");
+      var btnUnlock = document.getElementById("btn-unlock");
+      var btnChangeCreds = document.getElementById("btn-change-creds");
+      var btnClearCreds = document.getElementById("btn-clear-creds");
+
+      function showAppShell(connected) {
+        credentialGate.hidden = connected;
+        appContent.hidden = !connected;
+      }
+
+      btnUnlock.addEventListener("click", async function () {
+        if (promptForCredentials()) {
+          client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+          showAppShell(true);
+          await refresh();
+        }
+      });
+
+      btnClearCreds.addEventListener("click", function () {
+        if (confirm("Clear?")) clearCredentials();
+      });
+
+      btnChangeCreds.addEventListener("click", async function () {
+        if (promptForCredentials()) {
+          client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+          await refresh();
+        }
+      });
+
+      var appRoot = document.getElementById("app-root");
+      var listEl = document.getElementById("list");
+      var emptyEl = document.getElementById("empty-state");
+      var formEl = document.getElementById("add-form");
+      var inputEl = document.getElementById("new-item");
+      var suggestionsEl = document.getElementById("item-suggestions");
+      var countLabel = document.getElementById("count-label");
+      var clearDoneBtn = document.getElementById("clear-done");
+      var loadBanner = document.getElementById("load-banner");
+      var errorBanner = document.getElementById("error-banner");
+      var tabList = document.getElementById("tab-list");
+      var tabPast = document.getElementById("tab-past");
+      var panelList = document.getElementById("panel-list");
+      var panelPast = document.getElementById("panel-past");
+      var pastSummary = document.getElementById("past-summary");
+      var pastGroups = document.getElementById("past-groups");
+      var pastEmpty = document.getElementById("past-empty");
+      var btnRefresh = document.getElementById("btn-refresh");
+
+      /** @type {Item[]} */
+      var items = [];
+      /** @type {HistoryRow[]} */
+      var purchaseHistoryRows = [];
+      /** @type {string[]} */
+      var knownItemLabels = [];
+      var busyDepth = 0;
+
+      function setBusy(on) {
+        busyDepth += on ? 1 : -1;
+        if (busyDepth < 0) busyDepth = 0;
+        appRoot.classList.toggle("is-busy", busyDepth > 0);
+      }
+
+      function showError(msg) {
+        if (!msg) {
+          errorBanner.hidden = true;
+          errorBanner.textContent = "";
+          return;
+        }
+        errorBanner.textContent = msg;
+        errorBanner.hidden = false;
+      }
+
+      function formatShortDate(value) {
+        var date = value instanceof Date ? value : new Date(value);
+        if (isNaN(date.getTime())) return "";
+        var months = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
+        var mo = months[date.getMonth()];
+        var day = date.getDate();
+        var h = date.getHours();
+        var min = date.getMinutes();
+        var hh = h < 10 ? "0" + h : String(h);
+        var mm = min < 10 ? "0" + min : String(min);
+        return mo + " " + day + ", " + hh + ":" + mm;
+      }
+
+      function normKey(name) {
+        return String(name || "").trim().toLowerCase();
+      }
+
+      function rebuildSuggestionPool() {
+        var map = Object.create(null);
+        purchaseHistoryRows.forEach(function (r) {
+          var k = normKey(r.name);
+          if (k && map[k] === undefined) map[k] = r.name.trim();
+        });
+        items.forEach(function (i) {
+          var k = normKey(i.text);
+          if (k && map[k] === undefined) map[k] = i.text.trim();
+        });
+        knownItemLabels = Object.keys(map).map(function (k) {
+          return map[k];
+        });
+        knownItemLabels.sort(function (a, b) {
+          return a.toLowerCase().localeCompare(b.toLowerCase());
+        });
+      }
+
+      function hideSuggestions() {
+        suggestionsEl.hidden = true;
+        suggestionsEl.innerHTML = "";
+      }
+
+      function showSuggestions() {
+        var q = inputEl.value.trim();
+        if (!q) {
+          hideSuggestions();
+          return;
+        }
+        var ql = q.toLowerCase();
+        var matches = knownItemLabels.filter(function (name) {
+          return name.toLowerCase().indexOf(ql) === 0;
+        });
+        if (matches.length > 8) matches = matches.slice(0, 8);
+        if (matches.length === 0) {
+          hideSuggestions();
+          return;
+        }
+        suggestionsEl.innerHTML = "";
+        matches.forEach(function (name) {
+          var li = document.createElement("li");
+          li.setAttribute("role", "option");
+          li.textContent = name;
+          li.addEventListener("mousedown", function (e) {
+            e.preventDefault();
+            inputEl.value = name;
+            hideSuggestions();
+            inputEl.focus();
+          });
+          suggestionsEl.appendChild(li);
+        });
+        suggestionsEl.hidden = false;
+      }
+
+      /**
+       * @param {HistoryRow[]} rows
+       * @returns {{ label: string, times: number, lastAt: number, dates: string[] }[]}
+       */
+      function groupHistory(rows) {
+        var map = Object.create(null);
+        (rows || []).forEach(function (row) {
+          var key = normKey(row.name);
+          if (!key) return;
+          var g = map[key];
+          if (!g) {
+            g = { label: row.name.trim(), times: 0, lastAt: 0, dates: [] };
+            map[key] = g;
+          }
+          g.times++;
+          g.dates.push(row.purchased_at);
+          var t = new Date(row.purchased_at).getTime();
+          if (!g.lastAt || t > g.lastAt) {
+            g.lastAt = t;
+            g.label = row.name.trim();
+          }
+        });
+        var list = Object.keys(map).map(function (k) {
+          return map[k];
+        });
+        list.sort(function (a, b) {
+          if (b.lastAt !== a.lastAt) return b.lastAt - a.lastAt;
+          return b.times - a.times;
+        });
+        list.forEach(function (g) {
+          g.dates.sort(function (x, y) {
+            return new Date(y).getTime() - new Date(x).getTime();
+          });
+        });
+        return list;
+      }
+
+      function renderPastPanel() {
+        var groups = groupHistory(purchaseHistoryRows);
+        pastGroups.innerHTML = "";
+        var totalPurchases = purchaseHistoryRows.length;
+        if (groups.length === 0) {
+          pastSummary.textContent = "";
+          pastEmpty.hidden = false;
+          return;
+        }
+        pastEmpty.hidden = true;
+        pastSummary.textContent =
+          groups.length +
+          " product" +
+          (groups.length === 1 ? "" : "s") +
+          " in your history · " +
+          totalPurchases +
+          " checkoff" +
+          (totalPurchases === 1 ? "" : "s");
+
+        groups.forEach(function (g) {
+          var article = document.createElement("article");
+          article.className = "past-card";
+          var h = document.createElement("h3");
+          h.className = "past-card__title";
+          h.textContent = g.label;
+          var meta = document.createElement("p");
+          meta.className = "past-card__meta";
+          meta.innerHTML =
+            "Bought <strong>" +
+            g.times +
+            "×</strong> · last <strong>" +
+            formatShortDate(g.lastAt) +
+            "</strong>";
+          var details = document.createElement("details");
+          details.className = "past-card__details";
+          var sum = document.createElement("summary");
+          sum.textContent = "All purchase times (" + g.dates.length + ")";
+          var ul = document.createElement("ul");
+          ul.className = "past-dates";
+          g.dates.forEach(function (iso) {
+            var li = document.createElement("li");
+            li.textContent = formatShortDate(iso);
+            ul.appendChild(li);
+          });
+          details.appendChild(sum);
+          details.appendChild(ul);
+          article.appendChild(h);
+          article.appendChild(meta);
+          article.appendChild(details);
+          pastGroups.appendChild(article);
+        });
+      }
+
+      async function loadHistory(quiet) {
+        if (!client) return;
+        try {
+          var res = await client
+            .from("grocery_purchase_history")
+            .select("id,name,purchased_at")
+            .order("purchased_at", { ascending: false });
+          if (res.error) throw res.error;
+          purchaseHistoryRows = res.data || [];
+          renderPastPanel();
+        } catch (err) {
+          if (!quiet && !panelPast.hidden) {
+            showError(err.message || "Could not load purchase history.");
+          }
+        } finally {
+          rebuildSuggestionPool();
+        }
+      }
+
+      function setTab(which) {
+        var isList = which === "list";
+        tabList.setAttribute("aria-selected", isList ? "true" : "false");
+        tabPast.setAttribute("aria-selected", isList ? "false" : "true");
+        tabList.tabIndex = isList ? 0 : -1;
+        tabPast.tabIndex = isList ? -1 : 0;
+        panelList.hidden = !isList;
+        panelPast.hidden = isList;
+        if (!isList) {
+          showError("");
+          loadHistory(false);
+        }
+      }
+
+      tabList.addEventListener("click", function () {
+        setTab("list");
+      });
+      tabPast.addEventListener("click", function () {
+        setTab("past");
+      });
+
+      btnRefresh.addEventListener("click", async function () {
+        if (!client) return;
+        btnRefresh.classList.add("is-busy");
+        btnRefresh.disabled = true;
+        try {
+          await refresh();
+        } finally {
+          btnRefresh.classList.remove("is-busy");
+          btnRefresh.disabled = false;
+        }
+      });
+
+      function rowsToItems(rows) {
+        return (rows || []).map(function (row) {
+          return {
+            id: row.id,
+            text: row.name,
+            done: row.status === "bought",
+            boughtAt: row.bought_at || null,
+          };
+        });
+      }
+
+      async function refresh() {
+        if (!client) return;
+        loadBanner.hidden = false;
+        showError("");
+        setBusy(true);
+        try {
+          var res = await client
+            .from("grocery_list_items")
+            .select("id,name,status,created_at,bought_at")
+            .order("created_at", { ascending: true });
+          if (res.error) throw res.error;
+          items = rowsToItems(res.data);
+          render();
+          await loadHistory(true);
+        } catch (err) {
+          showError(err.message || "Could not load list.");
+          items = [];
+          render();
+          try {
+            await loadHistory(true);
+          } catch (_) {}
+        } finally {
+          loadBanner.hidden = true;
+          setBusy(false);
+        }
+      }
+
+      function render() {
+        listEl.innerHTML = "";
+        var open = items.filter(function (i) {
+          return !i.done;
+        }).length;
+        var done = items.length - open;
+
+        if (items.length === 0) {
+          emptyEl.hidden = false;
+          countLabel.textContent = "Items";
+          clearDoneBtn.hidden = true;
+          return;
+        }
+
+        emptyEl.hidden = true;
+        countLabel.textContent =
+          open === items.length
+            ? items.length + " to buy"
+            : open + " to buy · " + done + " done";
+
+        clearDoneBtn.hidden = done === 0;
+
+        items.forEach(function (item) {
+          var li = document.createElement("li");
+          li.className = "item" + (item.done ? " complete" : "");
+          li.dataset.id = item.id;
+
+          var wrap = document.createElement("div");
+          wrap.className = "checkbox-wrap";
+
+          var cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = item.done;
+          cb.setAttribute(
+            "aria-label",
+            item.done ? "Mark as not bought: " + item.text : "Mark as bought: " + item.text
+          );
+
+          var face = document.createElement("span");
+          face.className = "checkbox-face";
+          face.setAttribute("aria-hidden", "true");
+
+          wrap.appendChild(cb);
+          wrap.appendChild(face);
+
+          var textCol = document.createElement("div");
+          textCol.className = "item-text-col";
+
+          var label = document.createElement("label");
+          label.className = "item-label";
+          label.htmlFor = "cb-" + item.id;
+          label.textContent = item.text;
+
+          var cbId = "cb-" + item.id;
+          cb.id = cbId;
+
+          textCol.appendChild(label);
+          if (item.done && item.boughtAt) {
+            var when = document.createElement("div");
+            when.className = "item-when";
+            when.textContent = "Marked bought · " + formatShortDate(item.boughtAt);
+            textCol.appendChild(when);
+          }
+
+          var badge = document.createElement("span");
+          badge.className = "badge " + (item.done ? "badge-done" : "badge-todo");
+          badge.textContent = item.done ? "Bought" : "To buy";
+
+          var removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "btn btn-ghost";
+          removeBtn.textContent = "Remove";
+          removeBtn.setAttribute("aria-label", "Remove " + item.text);
+
+          cb.addEventListener("change", function () {
+            (async function () {
+              setBusy(true);
+              showError("");
+              var nowIso = new Date().toISOString();
+              try {
+                if (cb.checked) {
+                  var up = await client
+                    .from("grocery_list_items")
+                    .update({ status: "bought", bought_at: nowIso })
+                    .eq("id", item.id);
+                  if (up.error) throw up.error;
+                  var hist = await client.from("grocery_purchase_history").insert({
+                    name: item.text.trim().slice(0, 200),
+                    purchased_at: nowIso,
+                  });
+                  if (hist.error) throw hist.error;
+                  playSoundChecked();
+                } else {
+                  var up2 = await client
+                    .from("grocery_list_items")
+                    .update({ status: "to_buy", bought_at: null })
+                    .eq("id", item.id);
+                  if (up2.error) throw up2.error;
+                }
+                var idx = items.findIndex(function (x) {
+                  return x.id === item.id;
+                });
+                if (idx !== -1) {
+                  items[idx].done = cb.checked;
+                  items[idx].boughtAt = cb.checked ? nowIso : null;
+                }
+                render();
+                loadHistory(true);
+              } catch (err) {
+                cb.checked = !cb.checked;
+                showError(err.message || "Could not update status.");
+              } finally {
+                setBusy(false);
+              }
+            })();
+          });
+
+          label.addEventListener("click", function (e) {
+            e.preventDefault();
+            cb.checked = !cb.checked;
+            cb.dispatchEvent(new Event("change"));
+          });
+
+          removeBtn.addEventListener("click", function () {
+            (async function () {
+              setBusy(true);
+              showError("");
+              try {
+                var del = await client.from("grocery_list_items").delete().eq("id", item.id);
+                if (del.error) throw del.error;
+                items = items.filter(function (x) {
+                  return x.id !== item.id;
+                });
+                render();
+                rebuildSuggestionPool();
+                inputEl.focus();
+              } catch (err) {
+                showError(err.message || "Could not remove item.");
+              } finally {
+                setBusy(false);
+              }
+            })();
+          });
+
+          li.appendChild(wrap);
+          li.appendChild(textCol);
+          li.appendChild(badge);
+          li.appendChild(removeBtn);
+          listEl.appendChild(li);
+        });
+      }
+
+      inputEl.addEventListener("input", showSuggestions);
+      inputEl.addEventListener("focus", showSuggestions);
+      inputEl.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") hideSuggestions();
+      });
+      inputEl.addEventListener("blur", function () {
+        setTimeout(hideSuggestions, 120);
+      });
+
+      formEl.addEventListener("submit", function (e) {
+        e.preventDefault();
+        hideSuggestions();
+        var text = inputEl.value.trim();
+        if (!text) return;
+        (async function () {
+          setBusy(true);
+          showError("");
+          try {
+            var ins = await client
+              .from("grocery_list_items")
+              .insert({
+                name: text.slice(0, 200),
+                status: "to_buy",
+                bought_at: null,
+              })
+              .select("id,name,status,created_at,bought_at")
+              .single();
+            if (ins.error) throw ins.error;
+            playSoundAdded();
+            inputEl.value = "";
+            await refresh();
+            inputEl.focus();
+          } catch (err) {
+            showError(err.message || "Could not add item.");
+          } finally {
+            setBusy(false);
+          }
+        })();
+      });
+
+      clearDoneBtn.addEventListener("click", function () {
+        (async function () {
+          setBusy(true);
+          showError("");
+          try {
+            var del = await client.from("grocery_list_items").delete().eq("status", "bought");
+            if (del.error) throw del.error;
+            await refresh();
+          } catch (err) {
+            showError(err.message || "Could not clear bought items.");
+          } finally {
+            setBusy(false);
+          }
+        })();
+      });
+
+      if (getCredentials()) {
+        client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        showAppShell(true);
+        await refresh();
+      } else {
+        showAppShell(false);
+      }
+
+      if ("serviceWorker" in navigator && location.protocol !== "file:") {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(function () {});
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
