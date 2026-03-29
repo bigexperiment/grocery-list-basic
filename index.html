@@ -463,8 +463,26 @@
       font-weight: 500;
     }
 
+    .item-user-meta {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+      line-height: 1.35;
+    }
+
+    .item.complete .item-user-meta {
+      color: #a8a29e;
+    }
+
     .item.complete .item-when {
       color: #a8a29e;
+    }
+
+    .header-user-sub {
+      margin-top: 0.4rem;
+      font-size: 0.92em;
+      color: var(--accent);
+      font-weight: 600;
     }
 
     .past-lead {
@@ -724,7 +742,8 @@
   <div class="wrap">
     <div id="credential-gate" class="credential-gate">
       <div class="card">
-        <p class="gate-label">Enter passphrase:</p>
+        <p class="gate-label">You:</p>
+        <p class="gate-label">Passphrase:</p>
         <button type="button" class="btn btn-primary" id="btn-unlock">Unlock</button>
       </div>
     </div>
@@ -735,6 +754,7 @@
       <div class="app-header__text">
         <h1>Grocery list</h1>
         <p class="sub">Add what you need — tick it off when it’s in the cart.</p>
+        <p class="sub header-user-sub" id="header-user-line" hidden></p>
       </div>
       <button type="button" class="btn-icon" id="btn-refresh" aria-label="Refresh" title="Refresh">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -804,6 +824,7 @@
     </div>
 
       <footer class="app-footer">
+        <button type="button" class="btn btn-ghost" id="btn-change-user">You</button>
         <button type="button" class="btn btn-ghost" id="btn-change-creds">Change</button>
         <button type="button" class="btn btn-ghost" id="btn-clear-creds">Clear</button>
       </footer>
@@ -815,11 +836,12 @@
   <script>
     (async function () {
       var CRED_STORAGE_KEY = "grocery_list_app_credentials_v1";
+      var USER_KEY = "currentUserName";
       var SUPABASE_URL = "";
       var SUPABASE_KEY = "";
 
-      /** @typedef {{ id: string, name: string, purchased_at: string }} HistoryRow */
-      /** @typedef {{ id: string, text: string, done: boolean, boughtAt: string | null }} Item */
+      /** @typedef {{ id: string, name: string, purchased_at: string, purchased_by?: string | null }} HistoryRow */
+      /** @typedef {{ id: string, text: string, done: boolean, boughtAt: string | null, addedBy?: string | null, boughtBy?: string | null }} Item */
 
       var client = null;
 
@@ -870,6 +892,48 @@
       function validateSupabaseUrl(url) {
         var u = String(url || "").trim();
         return u.indexOf("https://") === 0;
+      }
+
+      function normalizeUserName(input) {
+        var t = String(input || "")
+          .trim()
+          .toLowerCase();
+        if (t === "ganesh") return "Ganesh";
+        if (t === "surya") return "Surya";
+        return "";
+      }
+
+      function getStoredUser() {
+        var raw = localStorage.getItem(USER_KEY);
+        var n = normalizeUserName(raw);
+        if (raw && !n) localStorage.removeItem(USER_KEY);
+        return n;
+      }
+
+      function promptForUser() {
+        var input = prompt("Ganesh or Surya:");
+        if (input === null) return false;
+        if (String(input).trim() === "") return false;
+        var n = normalizeUserName(input);
+        if (!n) {
+          alert("Invalid.");
+          return promptForUser();
+        }
+        localStorage.setItem(USER_KEY, n);
+        return true;
+      }
+
+      function syncHeaderUser() {
+        var line = document.getElementById("header-user-line");
+        if (!line) return;
+        var u = getStoredUser();
+        if (u) {
+          line.textContent = "You — " + u;
+          line.hidden = false;
+        } else {
+          line.textContent = "";
+          line.hidden = true;
+        }
       }
 
       function getCredentials() {
@@ -927,6 +991,7 @@
       var credentialGate = document.getElementById("credential-gate");
       var appContent = document.getElementById("app-content");
       var btnUnlock = document.getElementById("btn-unlock");
+      var btnChangeUser = document.getElementById("btn-change-user");
       var btnChangeCreds = document.getElementById("btn-change-creds");
       var btnClearCreds = document.getElementById("btn-clear-creds");
 
@@ -936,20 +1001,33 @@
       }
 
       btnUnlock.addEventListener("click", async function () {
-        if (promptForCredentials()) {
-          client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-          showAppShell(true);
-          await refresh();
+        if (!getStoredUser()) {
+          if (!promptForUser()) return;
         }
+        if (!getCredentials()) {
+          if (!promptForCredentials()) return;
+        }
+        client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        syncHeaderUser();
+        showAppShell(true);
+        await refresh();
       });
 
       btnClearCreds.addEventListener("click", function () {
         if (confirm("Clear?")) clearCredentials();
       });
 
+      btnChangeUser.addEventListener("click", function () {
+        if (confirm("Switch user?")) {
+          localStorage.removeItem(USER_KEY);
+          location.reload();
+        }
+      });
+
       btnChangeCreds.addEventListener("click", async function () {
         if (promptForCredentials()) {
           client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+          syncHeaderUser();
           await refresh();
         }
       });
@@ -1083,7 +1161,7 @@
 
       /**
        * @param {HistoryRow[]} rows
-       * @returns {{ label: string, times: number, lastAt: number, dates: string[] }[]}
+       * @returns {{ label: string, times: number, lastAt: number, lastBy: string, dates: { at: string, by: string }[] }[]}
        */
       function groupHistory(rows) {
         var map = Object.create(null);
@@ -1092,15 +1170,23 @@
           if (!key) return;
           var g = map[key];
           if (!g) {
-            g = { label: row.name.trim(), times: 0, lastAt: 0, dates: [] };
+            g = {
+              label: row.name.trim(),
+              times: 0,
+              lastAt: 0,
+              lastBy: "",
+              dates: [],
+            };
             map[key] = g;
           }
           g.times++;
-          g.dates.push(row.purchased_at);
+          var by = (row.purchased_by && String(row.purchased_by).trim()) || "";
+          g.dates.push({ at: row.purchased_at, by: by });
           var t = new Date(row.purchased_at).getTime();
           if (!g.lastAt || t > g.lastAt) {
             g.lastAt = t;
             g.label = row.name.trim();
+            g.lastBy = by;
           }
         });
         var list = Object.keys(map).map(function (k) {
@@ -1112,7 +1198,7 @@
         });
         list.forEach(function (g) {
           g.dates.sort(function (x, y) {
-            return new Date(y).getTime() - new Date(x).getTime();
+            return new Date(y.at).getTime() - new Date(x.at).getTime();
           });
         });
         return list;
@@ -1150,16 +1236,17 @@
             g.times +
             "×</strong> · last <strong>" +
             formatShortDate(g.lastAt) +
-            "</strong>";
+            "</strong>" +
+            (g.lastBy ? " · <strong>" + g.lastBy + "</strong>" : "");
           var details = document.createElement("details");
           details.className = "past-card__details";
           var sum = document.createElement("summary");
           sum.textContent = "All purchase times (" + g.dates.length + ")";
           var ul = document.createElement("ul");
           ul.className = "past-dates";
-          g.dates.forEach(function (iso) {
+          g.dates.forEach(function (d) {
             var li = document.createElement("li");
-            li.textContent = formatShortDate(iso);
+            li.textContent = formatShortDate(d.at) + (d.by ? " · " + d.by : "");
             ul.appendChild(li);
           });
           details.appendChild(sum);
@@ -1176,7 +1263,7 @@
         try {
           var res = await client
             .from("grocery_purchase_history")
-            .select("id,name,purchased_at")
+            .select("id,name,purchased_at,purchased_by")
             .order("purchased_at", { ascending: false });
           if (res.error) throw res.error;
           purchaseHistoryRows = res.data || [];
@@ -1230,6 +1317,8 @@
             text: row.name,
             done: row.status === "bought",
             boughtAt: row.bought_at || null,
+            addedBy: row.added_by || null,
+            boughtBy: row.bought_by || null,
           };
         });
       }
@@ -1242,7 +1331,7 @@
         try {
           var res = await client
             .from("grocery_list_items")
-            .select("id,name,status,created_at,bought_at")
+            .select("id,name,status,created_at,bought_at,added_by,bought_by")
             .order("created_at", { ascending: true });
           if (res.error) throw res.error;
           items = rowsToItems(res.data);
@@ -1318,10 +1407,17 @@
           cb.id = cbId;
 
           textCol.appendChild(label);
+          if (item.addedBy) {
+            var addMeta = document.createElement("div");
+            addMeta.className = "item-user-meta";
+            addMeta.textContent = "Added by " + item.addedBy;
+            textCol.appendChild(addMeta);
+          }
           if (item.done && item.boughtAt) {
             var when = document.createElement("div");
             when.className = "item-when";
-            when.textContent = "Marked bought · " + formatShortDate(item.boughtAt);
+            when.textContent =
+              "Marked bought · " + formatShortDate(item.boughtAt) + (item.boughtBy ? " · " + item.boughtBy : "");
             textCol.appendChild(when);
           }
 
@@ -1341,22 +1437,28 @@
               showError("");
               var nowIso = new Date().toISOString();
               try {
+                var who = getStoredUser();
                 if (cb.checked) {
                   var up = await client
                     .from("grocery_list_items")
-                    .update({ status: "bought", bought_at: nowIso })
+                    .update({
+                      status: "bought",
+                      bought_at: nowIso,
+                      bought_by: who || null,
+                    })
                     .eq("id", item.id);
                   if (up.error) throw up.error;
                   var hist = await client.from("grocery_purchase_history").insert({
                     name: item.text.trim().slice(0, 200),
                     purchased_at: nowIso,
+                    purchased_by: who || null,
                   });
                   if (hist.error) throw hist.error;
                   playSoundChecked();
                 } else {
                   var up2 = await client
                     .from("grocery_list_items")
-                    .update({ status: "to_buy", bought_at: null })
+                    .update({ status: "to_buy", bought_at: null, bought_by: null })
                     .eq("id", item.id);
                   if (up2.error) throw up2.error;
                 }
@@ -1366,6 +1468,7 @@
                 if (idx !== -1) {
                   items[idx].done = cb.checked;
                   items[idx].boughtAt = cb.checked ? nowIso : null;
+                  items[idx].boughtBy = cb.checked ? who || null : null;
                 }
                 render();
                 loadHistory(true);
@@ -1437,8 +1540,10 @@
                 name: text.slice(0, 200),
                 status: "to_buy",
                 bought_at: null,
+                bought_by: null,
+                added_by: getStoredUser() || null,
               })
-              .select("id,name,status,created_at,bought_at")
+              .select("id,name,status,created_at,bought_at,added_by,bought_by")
               .single();
             if (ins.error) throw ins.error;
             playSoundAdded();
@@ -1469,8 +1574,9 @@
         })();
       });
 
-      if (getCredentials()) {
+      if (getCredentials() && getStoredUser()) {
         client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        syncHeaderUser();
         showAppShell(true);
         await refresh();
       } else {
