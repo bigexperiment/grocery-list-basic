@@ -1,5 +1,5 @@
 /* grocery list — offline shell; API calls still need network */
-var VERSION = "grocery-list-pwa-2";
+var VERSION = "grocery-list-pwa-3";
 
 var PRECACHE_URLS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
